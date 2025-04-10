@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard Portuário</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background-color: #f0f0f0;
+    }
+    h1 {
+      text-align: center;
+    }
+    .card {
+      background-color: white;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 0 10px #ccc;
+    }
+    input {
+      width: 80px;
+      padding: 5px;
+      margin: 5px;
+    }
+    button {
+      padding: 10px 20px;
+      margin-top: 10px;
+      cursor: pointer;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    th, td {
+      border: 1px solid #999;
+      padding: 8px;
+      text-align: center;
+    }
+    th {
+      background-color: #eee;
+    }
+    
+    body.dark {
+        background-color: #1e1e1e;
+        color: white;
+    }
+
+    body.dark .card {
+        background-color: #2c2c2c;
+        box-shadow: 0 0 10px #555;
+    }
+
+    body.dark table {
+        color: white;
+        border-color: #666;
+    }
+
+    body.dark th {
+        background-color: #333;
+    }
+
+    body.dark input, body.dark button {
+        background-color: #444;
+        color: white;
+        border: 1px solid #777;
+    }
+
+  </style>
+</head>
+<body>
+
+  <h1>Dashboard Portuário - Codeba</h1>
+
+  <div style="text-align: center; margin-bottom: 20px;">
+    <button onclick="alternarTema()" id="botaoTema">🌙 Modo Escuro</button>
+  </div>
+
+  <div class="card">
+    <h2>Preencher movimentação (toneladas)</h2>
+    <label>Seg: <input type="number" id="seg" value="0"></label>
+    <label>Ter: <input type="number" id="ter" value="0"></label>
+    <label>Qua: <input type="number" id="qua" value="0"></label>
+    <label>Qui: <input type="number" id="qui" value="0"></label>
+    <label>Sex: <input type="number" id="sex" value="0"></label>
+    <label>Sab: <input type="number" id="sab" value="0"></label>
+    <label>Dom: <input type="number" id="dom" value="0"></label><br>
+    <button onclick="atualizarGrafico()">Atualizar gráfico</button>
+  </div>
+
+  <div class="card">
+    <h2>Gráfico de movimentação semanal</h2>
+    <div id="grafico"></div>
+  </div>
+
+  <div class="card">
+    <h2>Histórico de semanas anteriores</h2>
+    <button onclick="limparHistorico()" style="background-color: #ff4d4d; color: white; margin-bottom: 10px;">🗑️ Limpar Histórico</button>
+    <table id="historico">
+      <thead>
+        <tr>
+          <th>Semana</th>
+          <th>Seg</th>
+          <th>Ter</th>
+          <th>Qua</th>
+          <th>Qui</th>
+          <th>Sex</th>
+          <th>Sab</th>
+          <th>Dom</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>  
+
+  <script>
+    function atualizarGrafico() {
+      const dias = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'];
+      const valores = [
+        parseFloat(document.getElementById('seg').value) || 0,
+        parseFloat(document.getElementById('ter').value) || 0,
+        parseFloat(document.getElementById('qua').value) || 0,
+        parseFloat(document.getElementById('qui').value) || 0,
+        parseFloat(document.getElementById('sex').value) || 0,
+        parseFloat(document.getElementById('sab').value) || 0,
+        parseFloat(document.getElementById('dom').value) || 0
+      ];
+
+      const trace = {
+        x: dias,
+        y: valores,
+        type: 'bar',
+        marker: { color: 'rgb(100, 180, 240)' }
+      };
+
+      const temaEscuro = document.body.classList.contains('dark');
+
+      const layout = {
+        title: 'Movimentação por dia da semana (toneladas)',
+        yaxis: { title: 'Toneladas', color: temaEscuro ? 'white' : 'black' },
+        xaxis: { color: temaEscuro ? 'white' : 'black' },
+        paper_bgcolor: temaEscuro ? '#2c2c2c' : '#fff',
+        plot_bgcolor: temaEscuro ? '#2c2c2c' : '#fff',
+        font: {
+            color: temaEscuro ? 'white' : 'black'
+        }
+      }
+      Plotly.newPlot('grafico', [trace], layout);
+
+      salvarNoHistorico(valores);
+    }
+
+    function obterSegundaDaSemanaAtual() {
+      const hoje = new Date();
+      const dia = hoje.getDay(); // 0 = domingo, 1 = segunda, ..., 6 = sábado
+      const diferenca = (dia === 0 ? -6 : 1) - dia;
+      const segunda = new Date(hoje);
+      segunda.setDate(hoje.getDate() + diferenca);
+      return segunda.toLocaleDateString('pt-BR');
+    }
+
+    function salvarNoHistorico(valores) {
+        const dataInicioSemana = obterSegundaDaSemanaAtual();
+        const nomeSemana = `Semana iniciada em ${dataInicioSemana}`;
+
+        const dias = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom'];
+        const valoresObj = {};
+        dias.forEach((dia, i) => {
+        valoresObj[dia] = valores[i];
+        });
+
+        let historico = JSON.parse(localStorage.getItem('historicoPortuario')) || [];
+
+        historico.push({
+            semana: nomeSemana,
+            dias: valoresObj
+        });
+
+        localStorage.setItem('historicoPortuario', JSON.stringify(historico));
+
+        exibirHistorico();
+    }
+
+    function exibirHistorico() {
+        const historico = JSON.parse(localStorage.getItem('historicoPortuario')) || [];
+        const corpoTabela = document.querySelector('#historico tbody');
+        corpoTabela.innerHTML = '';
+
+        historico.forEach((semana, index) => {
+            const linha = document.createElement('tr');
+
+            linha.innerHTML = `
+                <td>${semana.semana}</td>
+                <td>${semana.dias.seg}</td>
+                <td>${semana.dias.ter}</td>
+                <td>${semana.dias.qua}</td>
+                <td>${semana.dias.qui}</td>
+                <td>${semana.dias.sex}</td>
+                <td>${semana.dias.sab}</td>
+                <td>${semana.dias.dom}</td>
+                <td><button onclick="excluirSemana(${index})" style="color: red;">🗑️</button></td>
+            `;
+
+            corpoTabela.appendChild(linha);
+        });
+    }
+
+    function alternarTema() {
+        const body = document.body;
+        const botao = document.getElementById('botaoTema');
+
+        body.classList.toggle('dark');
+
+        if (body.classList.contains('dark')) {
+            botao.textContent = '☀️ Modo Claro';
+            localStorage.setItem('temaDashboard', 'escuro');
+        } else {
+            botao.textContent = '🌙 Modo Escuro';
+            localStorage.setItem('temaDashboard', 'claro');
+        }
+        atualizarGrafico();
+    }
+
+// Verifica se o tema salvo é escuro
+    function aplicarTemaSalvo() {
+        const temaSalvo = localStorage.getItem('temaDashboard');
+        if (temaSalvo === 'escuro') {
+            document.body.classList.add('dark');
+            document.getElementById('botaoTema').textContent = '☀️ Modo Claro';
+        }
+    }
+
+    function limparHistorico() {
+        if (confirm("Tem certeza que deseja apagar todo o histórico?")) {
+            localStorage.removeItem('historicoPortuario');
+            exibirHistorico();
+            alert("Histórico apagado com sucesso.");
+        }
+    }
+
+    function excluirSemana(index) {
+        if (confirm("Tem certeza que deseja apagar esta semana do histórico?")) {
+        const historico = JSON.parse(localStorage.getItem('historicoPortuario')) || [];
+        historico.splice(index, 1);
+        localStorage.setItem('historicoPortuario', JSON.stringify(historico));
+        exibirHistorico();
+        }
+    }
+
+    atualizarGrafico();
+    exibirHistorico();
+    aplicarTemaSalvo();
+  </script>
+
+</body>
+</html>
